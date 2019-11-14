@@ -1,11 +1,19 @@
 require "./radixsort_lib"
-require "./radixsort_short"
+require "./radixsort"
 require "benchmark"
 
 def check_sorted(x, ref)
+  check_sorted x, ref, &.itself
+end
+
+def check_sorted(x, ref, &block)
   # pp x, ref
   (1...x.size).each do |i|
-    raise "failed" if x[i] != ref[i]
+    if yield(x[i]) != yield(ref[i])
+      # pp! i, x[i - 1], x[i], x[i + 1], ref[i - 1], ref[i], ref[i + 1]
+      pp! i, x[i], ref[i]
+      raise "failed"
+    end
   end
 end
 
@@ -35,13 +43,18 @@ struct SomeStruct
   end
 end
 
+def check_sanity(a)
+  check_sanity(a, &.itself)
+end
+
 def check_sanity(a, &block)
-  ref = a.sort_by { |x| yield x }
+  a.shuffle!
   b = a.clone
   10.times do
     a.shuffle!
+    ref = a.sort_by { |x| yield x }
     a.radix_sort_by!(tmp: b) { |x| yield x }
-    check_sorted a, ref
+    check_sorted(a, ref) { |x| yield x }
   end
   b.shuffle!
   return b
@@ -71,13 +84,13 @@ struct_b = check_sanity(struct_a, &.key)
 class_a = Array(SomeClass).new(n) { SomeClass.new(rand(Int32::MAX)) }
 class_b = check_sanity(class_a, &.key)
 
-# Benchmark.ips do |x|
-#   x.report("#{n}: just shuffle") { uint_a.shuffle! }
-#   # x.report("#{n}: stdlib sort") { uint_a.shuffle!; uint_a.sort! }
-#   x.report("#{n}: radix cpp") { uint_a.shuffle!; LibRadix.sort(uint_a.to_unsafe, uint_b.to_unsafe, n) }
-#   x.report("#{n}: crystal radix lsd") { uint_a.shuffle!; uint_a.radix_sort_by!(tmp: uint_b, &.itself) }
-#   x.report("#{n}: crystal radix lsd Int32") { int_a.shuffle!; int_a.radix_sort_by!(tmp: int_b, &.itself) }
-#   x.report("#{n}: crystal radix allocating") { uint_a.shuffle!; uint_a.radix_sort_by!(&.itself) }
-#   x.report("#{n}: crystal radix struct") { struct_a.shuffle!; struct_a.radix_sort_by!(tmp: struct_b, &.key) }
-#   x.report("#{n}: crystal radix class") { class_a.shuffle!; class_a.radix_sort_by!(tmp: class_b, &.key) }
-# end
+Benchmark.ips do |x|
+  x.report("#{n}: just shuffle") { uint_a.shuffle! }
+  x.report("#{n}: stdlib sort") { uint_a.shuffle!; uint_a.sort! }
+  x.report("#{n}: radix cpp") { uint_a.shuffle!; LibRadix.sort(uint_a.to_unsafe, uint_b.to_unsafe, n) }
+  x.report("#{n}: crystal radix lsd") { uint_a.shuffle!; uint_a.radix_sort_by!(tmp: uint_b, &.itself) }
+  x.report("#{n}: crystal radix lsd Int32") { int_a.shuffle!; int_a.radix_sort_by!(tmp: int_b, &.itself) }
+  x.report("#{n}: crystal radix allocating") { uint_a.shuffle!; uint_a.radix_sort_by!(&.itself) }
+  x.report("#{n}: crystal radix struct") { struct_a.shuffle!; struct_a.radix_sort_by!(tmp: struct_b, &.key) }
+  x.report("#{n}: crystal radix class") { class_a.shuffle!; class_a.radix_sort_by!(tmp: class_b, &.key) }
+end

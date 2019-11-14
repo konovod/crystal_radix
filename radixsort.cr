@@ -1,16 +1,16 @@
-# lib Intrinsics
+# lib LibIntrinsics
 #   fun prefetch = "llvm.prefetch"(address : Void*, rw : Int32, locality : Int32, cache_type : Int32)
 # end
 
-@[AlwaysInline]
-def prefetch(p)
-  Intrinsics.prefetch(p, 0, 1, 1)
-end
+# @[AlwaysInline]
+# def prefetch(p)
+#   LibIntrinsics.prefetch(p, 0, 1, 1)
+# end
 
 # TODO
 @[AlwaysInline]
 def radixsort_lookahead(p)
-  # prefetch(p.unsafe_as(Pointer(UInt8))+16)
+  # prefetch(p.unsafe_as(Pointer(UInt8)) + 16)
 end
 
 def fallback_sort(src, tmp, n, destination, &block)
@@ -119,7 +119,7 @@ struct RadixHelper(T, WIDTH, BITS, THRESHOLD)
       n.times do |i|
         k = hash_key(src, i){|x| yield x}
         # radixsort_lookahead(dst+c[k], (n-c[k])*sizeof(T))
-        # radixsort_lookahead(dst+c[k])
+        radixsort_lookahead(dst+c[k])
         #prefetch(dst.to_unsafe+c[k]+4)
         dst.to_unsafe[c.unsafe_fetch(k)] = src.unsafe_fetch(i)
         c.to_unsafe[k]+=1
@@ -161,7 +161,7 @@ module Enumerable(T)
     {% if U == UInt32 %}
       RadixHelper(T, 32, 8, 128).do_lsd(self, tmp) {|x| yield(x)}
     {% elsif U == Int32 %}
-      RadixHelper(T, 32, 8, 128).do_lsd(self, tmp) {|x| UInt32.new(yield(x)) - UInt32.new(Int32::MIN)}
+      RadixHelper(T, 32, 8, 128).do_lsd(self, tmp) {|x| yield(x).unsafe_as(UInt32) &- Int32::MIN.unsafe_as(UInt32)}
     {% else %}
       {% raise "Block should return UInt32 (preferably) or Int32, instead of #{U}" %}
     {% end %}
